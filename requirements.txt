@@ -1,0 +1,7 @@
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+pymysql>=1.1.0
+sqlalchemy>=2.0.0
+python-dotenv>=1.0.0
+uuid6>=2024.1.12
+cryptography>=42.0.0
