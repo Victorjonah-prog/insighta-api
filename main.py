@@ -196,6 +196,51 @@ def search_profiles(
         "total": total,
         "data": [format_profile(p) for p in profiles],
     }
+@app.post("/api/seed")
+def seed_database(db: Session = Depends(get_db)):
+    import json, os
+    filepath = "seed_profiles.json"
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail={"status": "error", "message": "Seed file not found"})
+    with open(filepath, "r") as f:
+        data = json.load(f)
+    profiles_raw = data if isinstance(data, list) else data.get("data", data.get("profiles", []))
+    from sqlalchemy import text
+    existing = set(row[0] for row in db.execute(text("SELECT name FROM profiles")).fetchall())
+    inserted = 0
+    try:
+        import uuid6
+        def new_uuid(): return str(uuid6.uuid7())
+    except:
+        import uuid
+        def new_uuid(): return str(uuid.uuid4())
+    from datetime import datetime, timezone
+    batch = []
+    for raw in profiles_raw:
+        name = raw.get("name", "").strip()
+        if not name or name in existing:
+            continue
+        age = int(raw.get("age", 0))
+        def get_age_group(a):
+            if a <= 12: return "child"
+            elif a <= 17: return "teenager"
+            elif a <= 59: return "adult"
+            else: return "senior"
+        batch.append(Profile(
+            id=new_uuid(), name=name,
+            gender=raw.get("gender","").lower(),
+            gender_probability=float(raw.get("gender_probability",0)),
+            age=age, age_group=raw.get("age_group") or get_age_group(age),
+            country_id=raw.get("country_id","").upper(),
+            country_name=raw.get("country_name",""),
+            country_probability=float(raw.get("country_probability",0)),
+            created_at=datetime.now(timezone.utc)
+        ))
+        existing.add(name)
+        inserted += 1
+    db.bulk_save_objects(batch)
+    db.commit()
+    return {"status": "success", "inserted": inserted}
  
  
 # Health check
